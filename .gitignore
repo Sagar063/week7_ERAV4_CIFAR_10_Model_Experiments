@@ -64,14 +64,23 @@ datasets/
 *.tar
 
 # ----------------------------
-# Results folder: KEEP plots, CSVs, text, summaries
+# # Results folder: KEEP plots, CSVs, text, summaries
 # ----------------------------
-# Ignore large binary files but keep visuals and reports
-!results/
-results/*.pth
-results/*.pt
-results/*.tar
-# Keep CSVs, PNGs, PDFs, text, Excel
+# Ignore everything in results by default
+results/*
+
+# Keep subfolders (plots, checkpoints etc.)
+!results/**/
+
+# Ignore all model checkpoint files
+results/**/*.pth
+results/**/*.pt
+results/**/*.tar
+
+# BUT keep only best.pth
+!results/**/best.pth
+
+# Keep CSVs, PNGs, PDFs, text, Excel, JSON, HTML
 !results/**/*.csv
 !results/**/*.png
 !results/**/*.pdf
@@ -82,6 +91,7 @@ results/*.tar
 
 # ----------------------------
 # Matplotlib cache
+
 # ----------------------------
 .matplotlib/
 
