@@ -10,7 +10,7 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.optim.lr_scheduler import StepLR
 from torch.utils.data import DataLoader
-
+import io, contextlib
 import matplotlib.pyplot as plt
 from tqdm import tqdm
 import pandas as pd
@@ -35,34 +35,6 @@ def get_device(arg):
     return torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
-# -------------------- Vis utils --------------------
-# def show_grid(images, labels, classes, title, mean, std, save_path=None, max_n=16):
-#     """Visualize a batch, denormalizing with the provided mean/std."""
-#     n = min(len(images), max_n)
-#     cols = 8
-#     rows = math.ceil(n / cols)
-#     fig, axes = plt.subplots(rows, cols, figsize=(cols * 1.6, rows * 1.6))
-#     axes = axes.ravel()
-
-#     mean = np.array(mean).reshape(3, 1, 1)
-#     std = np.array(std).reshape(3, 1, 1)
-
-#     for i in range(cols * rows):
-#         ax = axes[i]
-#         ax.axis("off")
-#         if i < n:
-#             img = images[i].cpu().numpy()  # C,H,W (normalized)
-#             img = (img * std + mean)       # back to [0,1]
-#             img = np.clip(img, 0, 1).transpose(1, 2, 0)
-#             ax.imshow(img)
-#             ax.set_title(classes[labels[i]], fontsize=8)
-
-#     plt.suptitle(title)
-#     plt.tight_layout()
-#     if save_path:
-#         Path(save_path).parent.mkdir(parents=True, exist_ok=True)
-#         plt.savefig(save_path, dpi=150)
-#     plt.close(fig)
 
 # -------------------- Vis utils --------------------
 
@@ -192,6 +164,24 @@ def show_model_summary(model, input_size=(3,32,32), device_str="cpu"):
         except Exception:
             print("Install torchinfo or torchsummary for layer-wise summary.")
     print("="*60 + "\n")
+
+def get_model_summary_text(model, input_size=(3, 32, 32), device_str="cpu"):
+    # Prefer torchinfo (includes param counts & layer shapes)
+    try:
+        from torchinfo import summary as ti_summary
+        s = ti_summary(model, input_size=(1, *input_size), device=device_str)
+        return str(s)
+    except Exception:
+        pass
+    # Fallback: torchsummary (capture stdout)
+    try:
+        from torchsummary import summary as ts_summary
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            ts_summary(model, input_size=input_size, device=device_str)
+        return buf.getvalue()
+    except Exception:
+        return "Install torchinfo or torchsummary for a detailed layer-wise summary."
 
 
 # -------------------- Train / Eval with live progress --------------------
@@ -342,6 +332,16 @@ def main():
     model = Net().to(device) if args.model == "basic" else NetDilated().to(device)
     n_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
     print(f"Trainable parameters: {n_params}")
+    # Save a model summary text for README
+    summary_txt = get_model_summary_text(
+        model, input_size=(3, 32, 32),
+        device_str=("cuda" if device.type == "cuda" else "cpu")
+    )
+    Path("results").mkdir(parents=True, exist_ok=True)
+    (Path("results") / "model_summary.txt").write_text(
+        f"Trainable parameters: {n_params}\n\n{summary_txt}\n", encoding="utf-8"
+    )
+
 
     # 4a) Layer-wise summary (if torchsummary/torchinfo available)
     show_model_summary(model, input_size=(3, 32, 32), device_str=("cuda" if device.type == "cuda" else "cpu"))
@@ -365,7 +365,7 @@ def main():
         mean=mean, std=std,
         grid_path="results/plots/test_samples_grid.png",
         tiles_dir="results/plots/test_samples",   # NEW: per-image tiles
-        max_n=16, upscale=4                       # upscale 4x => 128x128
+        max_n=16, upscale=1                       # upscale 4x => 128x128
     )
 
     xb1, yb1 = next(iter(train_loader))
@@ -375,7 +375,7 @@ def main():
         mean=mean, std=std,
         grid_path="results/plots/augmented_samples_grid.png",
         tiles_dir="results/plots/augmented_samples",  # NEW: per-image tiles
-        max_n=16, upscale=4
+        max_n=16, upscale=1
     )
 
 

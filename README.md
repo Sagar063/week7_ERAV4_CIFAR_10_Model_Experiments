@@ -51,10 +51,10 @@ After B4, the feature map is 4×4 (from 32→16→8→4), then **GAP** → 1×1,
 | Metric | Value |
 |---|---:|
 | **Best Test Acc** | **58.95%** (epoch 2) |
-| Best Test Loss | 1.1432 |
-| Last Train Acc | 53.75% (epoch 2) |
-| Last Train Loss | 1.2711 |
-| Updated | 2025-10-04 16:59:14 |
+| Best Test Loss | 1.1343 |
+| Last Train Acc | 54.06% (epoch 2) |
+| Last Train Loss | 1.2615 |
+| Updated | 2025-10-04 17:13:22 |
 <!-- /RESULTS -->
 
 <!-- PLOTS -->
@@ -77,26 +77,26 @@ After B4, the feature map is 4×4 (from 32→16→8→4), then **GAP** → 1×1,
 <!-- TILE_GALLERY -->
 <h4>Test sample tiles</h4>
 <p>
-<img src="D:/ERA/week7/week7_ERAV4_CIFAR_10_Model_Experiments/results/plots/test_samples/img_00_cat.png" width="128" style="margin:4px;">
-<img src="D:/ERA/week7/week7_ERAV4_CIFAR_10_Model_Experiments/results/plots/test_samples/img_01_ship.png" width="128" style="margin:4px;">
-<img src="D:/ERA/week7/week7_ERAV4_CIFAR_10_Model_Experiments/results/plots/test_samples/img_02_ship.png" width="128" style="margin:4px;">
-<img src="D:/ERA/week7/week7_ERAV4_CIFAR_10_Model_Experiments/results/plots/test_samples/img_03_airplane.png" width="128" style="margin:4px;">
-<img src="D:/ERA/week7/week7_ERAV4_CIFAR_10_Model_Experiments/results/plots/test_samples/img_04_frog.png" width="128" style="margin:4px;">
-<img src="D:/ERA/week7/week7_ERAV4_CIFAR_10_Model_Experiments/results/plots/test_samples/img_05_frog.png" width="128" style="margin:4px;">
-<img src="D:/ERA/week7/week7_ERAV4_CIFAR_10_Model_Experiments/results/plots/test_samples/img_06_automobile.png" width="128" style="margin:4px;">
-<img src="D:/ERA/week7/week7_ERAV4_CIFAR_10_Model_Experiments/results/plots/test_samples/img_07_frog.png" width="128" style="margin:4px;">
+<img src="results/plots/test_samples/img_00_cat.png" width="128" style="margin:4px;">
+<img src="results/plots/test_samples/img_01_ship.png" width="128" style="margin:4px;">
+<img src="results/plots/test_samples/img_02_ship.png" width="128" style="margin:4px;">
+<img src="results/plots/test_samples/img_03_airplane.png" width="128" style="margin:4px;">
+<img src="results/plots/test_samples/img_04_frog.png" width="128" style="margin:4px;">
+<img src="results/plots/test_samples/img_05_frog.png" width="128" style="margin:4px;">
+<img src="results/plots/test_samples/img_06_automobile.png" width="128" style="margin:4px;">
+<img src="results/plots/test_samples/img_07_frog.png" width="128" style="margin:4px;">
 </p>
 
 <h4>Augmented sample tiles</h4>
 <p>
-<img src="D:/ERA/week7/week7_ERAV4_CIFAR_10_Model_Experiments/results/plots/augmented_samples/img_00_frog.png" width="128" style="margin:4px;">
-<img src="D:/ERA/week7/week7_ERAV4_CIFAR_10_Model_Experiments/results/plots/augmented_samples/img_01_truck.png" width="128" style="margin:4px;">
-<img src="D:/ERA/week7/week7_ERAV4_CIFAR_10_Model_Experiments/results/plots/augmented_samples/img_02_ship.png" width="128" style="margin:4px;">
-<img src="D:/ERA/week7/week7_ERAV4_CIFAR_10_Model_Experiments/results/plots/augmented_samples/img_03_horse.png" width="128" style="margin:4px;">
-<img src="D:/ERA/week7/week7_ERAV4_CIFAR_10_Model_Experiments/results/plots/augmented_samples/img_04_airplane.png" width="128" style="margin:4px;">
-<img src="D:/ERA/week7/week7_ERAV4_CIFAR_10_Model_Experiments/results/plots/augmented_samples/img_05_automobile.png" width="128" style="margin:4px;">
-<img src="D:/ERA/week7/week7_ERAV4_CIFAR_10_Model_Experiments/results/plots/augmented_samples/img_06_automobile.png" width="128" style="margin:4px;">
-<img src="D:/ERA/week7/week7_ERAV4_CIFAR_10_Model_Experiments/results/plots/augmented_samples/img_07_bird.png" width="128" style="margin:4px;">
+<img src="results/plots/augmented_samples/img_00_bird.png" width="128" style="margin:4px;">
+<img src="results/plots/augmented_samples/img_01_cat.png" width="128" style="margin:4px;">
+<img src="results/plots/augmented_samples/img_02_truck.png" width="128" style="margin:4px;">
+<img src="results/plots/augmented_samples/img_03_deer.png" width="128" style="margin:4px;">
+<img src="results/plots/augmented_samples/img_04_ship.png" width="128" style="margin:4px;">
+<img src="results/plots/augmented_samples/img_05_deer.png" width="128" style="margin:4px;">
+<img src="results/plots/augmented_samples/img_06_frog.png" width="128" style="margin:4px;">
+<img src="results/plots/augmented_samples/img_07_bird.png" width="128" style="margin:4px;">
 </p>
 <!-- /TILE_GALLERY -->
 
@@ -110,3 +110,71 @@ python visualize_augmentations.py --save results/plots/aug_demo.png
 ```
 _Why_: sanity-check your Albumentations pipeline and confirm computed mean/std are used.
 <!-- /VISUALIZATION -->
+
+<!-- MODEL_SUMMARY -->
+<details><summary><b>Model summary (click to expand)</b></summary>
+
+```
+Trainable parameters: 84322
+
+==========================================================================================
+Layer (type:depth-idx)                   Output Shape              Param #
+==========================================================================================
+Net                                      [1, 10]                   --
+├─ConvBlock: 1-1                         [1, 24, 32, 32]           --
+│    └─Conv2d: 2-1                       [1, 24, 32, 32]           648
+│    └─BatchNorm2d: 2-2                  [1, 24, 32, 32]           48
+│    └─ReLU: 2-3                         [1, 24, 32, 32]           --
+├─ConvBlock: 1-2                         [1, 32, 32, 32]           --
+│    └─Conv2d: 2-4                       [1, 32, 32, 32]           6,912
+│    └─BatchNorm2d: 2-5                  [1, 32, 32, 32]           64
+│    └─ReLU: 2-6                         [1, 32, 32, 32]           --
+├─ConvBlock: 1-3                         [1, 48, 16, 16]           --
+│    └─Conv2d: 2-7                       [1, 48, 16, 16]           13,824
+│    └─BatchNorm2d: 2-8                  [1, 48, 16, 16]           96
+│    └─ReLU: 2-9                         [1, 48, 16, 16]           --
+├─DWSeparable: 1-4                       [1, 64, 16, 16]           --
+│    └─Conv2d: 2-10                      [1, 48, 16, 16]           432
+│    └─Conv2d: 2-11                      [1, 64, 16, 16]           3,072
+│    └─BatchNorm2d: 2-12                 [1, 64, 16, 16]           128
+│    └─ReLU: 2-13                        [1, 64, 16, 16]           --
+├─DWSeparable: 1-5                       [1, 80, 8, 8]             --
+│    └─Conv2d: 2-14                      [1, 64, 8, 8]             576
+│    └─Conv2d: 2-15                      [1, 80, 8, 8]             5,120
+│    └─BatchNorm2d: 2-16                 [1, 80, 8, 8]             160
+│    └─ReLU: 2-17                        [1, 80, 8, 8]             --
+├─ConvBlock: 1-6                         [1, 96, 8, 8]             --
+│    └─Conv2d: 2-18                      [1, 96, 8, 8]             7,680
+│    └─BatchNorm2d: 2-19                 [1, 96, 8, 8]             192
+│    └─ReLU: 2-20                        [1, 96, 8, 8]             --
+├─DWSeparable: 1-7                       [1, 112, 4, 4]            --
+│    └─Conv2d: 2-21                      [1, 96, 4, 4]             864
+│    └─Conv2d: 2-22                      [1, 112, 4, 4]            10,752
+│    └─BatchNorm2d: 2-23                 [1, 112, 4, 4]            224
+│    └─ReLU: 2-24                        [1, 112, 4, 4]            --
+├─DWSeparable: 1-8                       [1, 128, 4, 4]            --
+│    └─Conv2d: 2-25                      [1, 112, 4, 4]            1,008
+│    └─Conv2d: 2-26                      [1, 128, 4, 4]            14,336
+│    └─BatchNorm2d: 2-27                 [1, 128, 4, 4]            256
+│    └─ReLU: 2-28                        [1, 128, 4, 4]            --
+├─ConvBlock: 1-9                         [1, 128, 4, 4]            --
+│    └─Conv2d: 2-29                      [1, 128, 4, 4]            16,384
+│    └─BatchNorm2d: 2-30                 [1, 128, 4, 4]            256
+│    └─ReLU: 2-31                        [1, 128, 4, 4]            --
+├─AdaptiveAvgPool2d: 1-10                [1, 128, 1, 1]            --
+├─Linear: 1-11                           [1, 10]                   1,290
+==========================================================================================
+Total params: 84,322
+Trainable params: 84,322
+Non-trainable params: 0
+Total mult-adds (Units.MEGABYTES): 13.73
+==========================================================================================
+Input size (MB): 0.01
+Forward/backward pass size (MB): 1.81
+Params size (MB): 0.34
+Estimated Total Size (MB): 2.16
+==========================================================================================
+```
+
+</details>
+<!-- /MODEL_SUMMARY -->

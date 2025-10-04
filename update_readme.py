@@ -34,6 +34,7 @@ import glob
 ROOT = Path(__file__).parent
 README = ROOT / "README.md"
 LOG = ROOT / "results" / "train_log.csv"
+MODEL_SUMMARY = ROOT / "results" / "model_summary.txt"
 
 PLOTS = [
     ("Test samples (grid)", "results/plots/test_samples_grid.png"),
@@ -120,10 +121,13 @@ def _format_tile_gallery() -> str:
             continue
         row = [f"<h4>{label}</h4>", "<p>"]
         for im in imgs:
-            row.append(f'<img src="{Path(im).as_posix()}" width="128" style="margin:4px;">')
+            # IMPORTANT: make the path RELATIVE to the repo root (not absolute on your machine)
+            rel = Path(im).resolve().relative_to(ROOT.resolve()).as_posix()
+            row.append(f'<img src="{rel}" width="128" style="margin:4px;">')
         row.append("</p>")
         groups.append("\n".join(row))
     return "\n\n".join(groups) or "_No per-image tiles found._"
+
 
 def _format_visualization_usage() -> str:
     return (
@@ -134,6 +138,16 @@ def _format_visualization_usage() -> str:
         "```\n"
         "_Why_: sanity-check your Albumentations pipeline and confirm computed mean/std are used.\n"
     )
+
+def _format_model_summary() -> str:
+    if MODEL_SUMMARY.exists():
+        txt = MODEL_SUMMARY.read_text(encoding="utf-8")
+        return (
+            "<details><summary><b>Model summary (click to expand)</b></summary>\n\n"
+            "```\n" + txt.rstrip() + "\n```\n\n"
+            "</details>"
+        )
+    return "_No model summary found. Train once to generate it (results/model_summary.txt)._"
 
 def main():
     if not README.exists():
@@ -163,6 +177,10 @@ def main():
     # VISUALIZATION usage (commands + purpose)
     vis_md = _format_visualization_usage()
     md = _block(md, "VISUALIZATION", vis_md)
+
+    # MODEL SUMMARY (optional)
+    model_md = _format_model_summary()
+    md = _block(md, "MODEL_SUMMARY", model_md)
 
     README.write_text(md, encoding="utf-8")
     print("README.md updated.")
