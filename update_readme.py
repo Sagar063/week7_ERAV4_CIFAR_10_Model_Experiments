@@ -67,7 +67,7 @@ if str(UTILS_DIR) not in _sys.path:
 # Try import RF generator
 _rf_err = ""
 try:
-    import rf_autogen as _rf
+    import utils.rf_autogen as _rf
 except Exception as _e:
     _rf_err = f"{_e}"
     _rf = None
@@ -109,6 +109,12 @@ def _read_text_safe(path: Path) -> str:
 
 
 # ----------------------- Data load -----------------------
+def _first_epoch_over(df: pd.DataFrame, threshold=0.85, col="test_acc"):
+    hits = df.loc[df[col] >= threshold, "epoch"]
+    if len(hits):
+        return int(hits.iloc[0])
+    return "N/A"
+
 
 def _load_log(d: Path):
     csvp = d / "train_log.csv"
@@ -243,6 +249,7 @@ def main():
         ("dilated_model", dil_dir, df_d),
     ]:
         if d.exists() and df is not None and len(df):
+            first85 = _first_epoch_over(df, 0.85, "test_acc")
             best_ep, best_acc = _best_epoch(df, "test_acc")
             final_acc = float(df.iloc[-1]["test_acc"])
             epochs = int(df["epoch"].max())
@@ -266,7 +273,7 @@ def main():
                 "best_epoch": best_ep if best_ep is not None else "N/A",
                 "final_test_acc": round(final_acc*100, 2) if final_acc is not None else "N/A",
                 "epochs": epochs if epochs is not None else "N/A",
-                "train_time_sec": "N/A",  # not persisted
+                "epoch>85%": first85, # not persisted
                 "augment": True,
                 "optimizer": opt,
                 "lr": lr if lr is not None else "default(0.1)",
@@ -276,7 +283,7 @@ def main():
 
     # Build summary markdown table
     if rows:
-        cols = ["exp_name","params","best_test_acc","best_epoch","final_test_acc","epochs","train_time_sec","augment","optimizer","lr","use_steplr"]
+        cols = ["exp_name","params","best_test_acc","best_epoch","final_test_acc","epochs","epoch>85%","augment","optimizer","lr","use_steplr"]
         header = "| " + " | ".join(cols) + " |"
         sep = "|" + "|".join(["---"]*len(cols)) + "|"
         lines = [header, sep]
@@ -318,15 +325,19 @@ def main():
     def _rep_table(rep):
         if not rep:
             return "_Classification report not found._"
-        cols = ["precision","recall","f1"]
-        header = "| avg | " + " | ".join(cols) + " |"
-        sep = "|" + "|".join(["---"]*(len(cols)+1)) + "|"
-        rows = [header, sep]
-        for key in ["macro avg","weighted avg"]:
+        rows = []
+        rows.append("**Classification Report**\n")
+        header = "| Average Type | Precision | Recall | F1-score |"
+        sep    = "|---|---:|---:|---:|"
+        rows += [header, sep]
+        for key, label in [("macro avg", "**Macro Avg**"), ("weighted avg", "**Weighted Avg**")]:
             r = rep.get(key, {})
-            vals = [f"{r.get(c, np.nan):.3f}" if isinstance(r.get(c, None), (int,float,np.floating)) else "N/A" for c in cols]
-            rows.append("| " + key + " | " + " | ".join(vals) + " |")
+            pr = r.get("precision", np.nan)
+            rc = r.get("recall", np.nan)
+            f1 = r.get("f1", np.nan)
+            rows.append(f"| {label} | {pr:.3f} | {rc:.3f} | {f1:.3f} |")
         return "\n".join(rows)
+
 
     rep_base_md = _rep_table(rep_base)
     rep_dil_md  = _rep_table(rep_dil)
@@ -395,8 +406,9 @@ def main():
 
     # RF tables
     # Add helper headings as requested
-    rf_base_block = "### Receptive Field per Layer — Net\n\n" + rf_md_map.get("Net","_RF for Net missing._")
-    rf_dil_block  = "### Receptive Field per Layer — NetDilated\n\n" + rf_md_map.get("NetDilated","_RF for NetDilated missing._")
+    rf_base_block = rf_md_map.get("Net", "_RF for Net missing._")
+    rf_dil_block  = rf_md_map.get("NetDilated", "_RF for NetDilated missing._")
+
     md = _set_block(md, "RF_NET", rf_base_block)
     md = _set_block(md, "RF_DILATED", rf_dil_block)
 

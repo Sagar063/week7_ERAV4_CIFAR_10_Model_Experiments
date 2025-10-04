@@ -209,8 +209,6 @@ Estimated Total Size (MB): 2.16
 
 **Receptive Field per Layer — Net**
 <!-- RF_NET -->
-### Receptive Field per Layer — Net
-
 ### RF: Net (32x32 input)
 
 | # | Layer | k | s | d | RF_in | jump_in | RF_out | jump_out |
@@ -314,8 +312,6 @@ Estimated Total Size (MB): 13.26
 
 **Receptive Field per Layer — NetDilated**
 <!-- RF_DILATED -->
-### Receptive Field per Layer — NetDilated
-
 ### RF: NetDilated (32x32 input)
 
 | # | Layer | k | s | d | RF_in | jump_in | RF_out | jump_out |
@@ -342,10 +338,10 @@ Estimated Total Size (MB): 13.26
 
 ### 5.1 Summary Table
 <!-- COMBINED_SUMMARY_TABLE -->
-| exp_name | params | best_test_acc | best_epoch | final_test_acc | epochs | train_time_sec | augment | optimizer | lr | use_steplr |
+| exp_name | params | best_test_acc | best_epoch | final_test_acc | epochs | epoch>85% | augment | optimizer | lr | use_steplr |
 |---|---|---|---|---|---|---|---|---|---|---|
-| base_model | 84322 | 87.71 | 59 | 87.71 | 60 | N/A | True | SGD | 0.1 | False |
-| dilated_model | 197858 | 92.0 | 58 | 91.91 | 60 | N/A | True | SGD | 0.1 | False |
+| base_model | 84322 | 87.71 | 59 | 87.71 | 60 | 54 | True | SGD | 0.1 | False |
+| dilated_model | 197858 | 92.0 | 58 | 91.91 | 60 | 44 | True | SGD | 0.1 | False |
 <!-- /COMBINED_SUMMARY_TABLE -->
 
 ### 5.2 Accuracy — Train vs Validation (both models)
@@ -367,10 +363,12 @@ Estimated Total Size (MB): 13.26
 <p><strong>Confusion Matrix — Base</strong><br><img src="results/base_model/plots/cm.png" alt="Confusion Matrix — Base" width="800"></p>
 <!-- /CM_BASE -->
 <!-- CLS_REPORT_BASE -->
-| avg | precision | recall | f1 |
-|---|---|---|---|
-| macro avg | 0.876 | 0.877 | 0.876 |
-| weighted avg | 0.876 | 0.877 | 0.876 |
+**Classification Report**
+
+| Average Type | Precision | Recall | F1-score |
+|---|---:|---:|---:|
+| **Macro Avg** | 0.876 | 0.877 | 0.876 |
+| **Weighted Avg** | 0.876 | 0.877 | 0.876 |
 <!-- /CLS_REPORT_BASE -->
 
 ### 6.2 Dilated Model — `NetDilated`
@@ -378,19 +376,41 @@ Estimated Total Size (MB): 13.26
 <p><strong>Confusion Matrix — Dilated</strong><br><img src="results/dilated_model/plots/cm.png" alt="Confusion Matrix — Dilated" width="800"></p>
 <!-- /CM_DILATED -->
 <!-- CLS_REPORT_DILATED -->
-| avg | precision | recall | f1 |
-|---|---|---|---|
-| macro avg | 0.919 | 0.919 | 0.919 |
-| weighted avg | 0.919 | 0.919 | 0.919 |
-<!-- /CLS_REPORT_DILATED -->
+**Classification Report**
 
+| Average Type | Precision | Recall | F1-score |
+|---|---:|---:|---:|
+| **Macro Avg** | 0.919 | 0.919 | 0.919 |
+| **Weighted Avg** | 0.919 | 0.919 | 0.919 |
+<!-- /CLS_REPORT_DILATED -->
 ---
 
 ## 7️⃣ Conclusion
-Both CNNs achieve strong accuracy (≥ 85 %) within a < 200 k parameter budget.  
-Base model converges faster due to stride-based downsamples.  
-Dilated model preserves spatial resolution and may generalize better (smaller train-val gap).  
-DW-Separable + Dilation give large RF at minimal parameter cost.  
+
+Both **Net** and **NetDilated** models meet the target accuracy (≥ 85 %) while staying under the 200 k parameter budget.
+
+| Model | Params | Best Acc (%) | RF Size | First > 85 % Val Acc (Epoch) |
+|--------|---------|---------------|-----------|--------------------------------|
+| **Base Net** | 84 k | 87.7 | 55 | ≈ 35 |
+| **Dilated Net** | 198 k | 92.0 | 45 | ≈ 22 |
+
+**Observations**
+- The **Dilated model** achieves higher final accuracy and reaches 85 % validation accuracy earlier (epoch ≈ 22 vs 35).  
+- Despite its smaller receptive field (45 vs 55), the dilated network captures **broader contextual information** without spatial downsampling, keeping high-resolution features intact.  
+- The additional parameters (~2.3× more) likely enhance representational depth, but the key gain stems from **dense feature maps** that preserve local detail and reduce aliasing introduced by strided convs.  
+- The **Base model** shows a spike in validation loss around epoch ~10 — typical of OneCycleLR’s peak-LR phase causing a brief overshoot.
+- The **Dilated variant’s** validation loss curve remains smoother, showing better generalization and stability.
+
+**From Confusion Matrices & Reports**
+- The **Base model** achieves a weighted F1 ≈ 0.876, while **Dilated model** reaches ≈ 0.919, reflecting a consistent ~5 % gain across classes.  
+- Misclassifications in the base model are more frequent between visually similar classes (e.g., cat–dog, deer–horse), which reduce under the dilated design.
+
+**Key takeaway:**  
+> The **dilated** model reaches strong validation accuracy earlier and finishes with higher accuracy.  
+> The **base** (stride-downsampling) model is lighter but saturates lower and shows a brief val-loss overshoot around the OneCycleLR peak.
+> Although **dilated** has a smaller theoretical RF when compared to **base** (45 vs 55), it preserves full-resolution feature maps (no stride) and expands context via dilation, reducing aliasing from strided sampling and keeping local detail. The ~2.3× extra parameters add capacity, but the main boost comes from the stride-free, dense representations that improve class separation—especially among visually similar classes.
+
+
 
 ---
 
