@@ -52,6 +52,49 @@ def get_train_transforms():
         ToTensorV2()
     ])
 
+# def get_train_transforms():
+#     """
+#     Albumentations training pipeline:
+#       - HH: Horizontal Flip
+#       - AFF: Affine (translate/scale/rotate)
+#       - CD: CoarseDropout
+#       - Normalize + ToTensorV2
+#     """
+#     mean255 = tuple(int(m * 255) for m in CIFAR10_MEAN)
+
+#     # ✅ CoarseDropout compatible with both old/new Albumentations signatures
+#     def make_coarse_dropout():
+#         try:
+#             return A.CoarseDropout(
+#                 min_holes=1, max_holes=1,
+#                 min_height=16, max_height=16,
+#                 min_width=16, max_width=16,
+#                 fill_value=mean255,
+#                 p=0.5,
+#             )
+#         except TypeError:
+#             return A.CoarseDropout(
+#                 max_holes=1,
+#                 max_height=16, max_width=16,
+#                 fill_value=mean255,
+#                 p=0.5,
+#             )
+
+#     return A.Compose([
+#         A.HorizontalFlip(p=0.5),  # HH
+#         A.Affine(                 # AFF
+#             translate_percent={"x": (-0.0625, 0.0625), "y": (-0.0625, 0.0625)},
+#             scale=(0.9, 1.1),
+#             rotate=(-15, 15),
+#             fit_output=False,
+#             border_mode=cv2.BORDER_REFLECT_101,
+#             p=0.5,
+#         ),
+#         make_coarse_dropout(),     # CD
+#         A.Normalize(mean=CIFAR10_MEAN, std=CIFAR10_STD),
+#         ToTensorV2(),
+#     ])
+
 
 def get_test_transforms():
     """ Evaluation pipeline: only Normalize + ToTensorV2. """

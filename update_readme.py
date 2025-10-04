@@ -204,6 +204,22 @@ def _plot_combined_loss(df_base, df_dil, outpath: Path):
     plt.tight_layout(); plt.savefig(outpath, dpi=150); plt.close()
 
 
+
+def render_aug_demo(img_path="results/augmentations_plots/aug_demo.png"):
+    p = Path(img_path)
+    if p.exists():
+        return (
+            f'<p><strong>Augmentation Demo</strong><br>\n'
+            f'<img src="{img_path}" alt="Augmentation Demo" width="900">\n'
+            f'</p>'
+        )
+    # if not found, show a gentle hint (keeps README tidy)
+    return (
+        "<p><em>Augmentation image not found.</em> "
+        "Run: <code>python visualize_augmentations.py --data ./data --n-samples 16</code> "
+        "to generate <code>results/augmentations_plots/aug_demo.png</code>.</p>"
+    )
+
 # ----------------------- RF -----------------------
 
 def _rf_markdown_for(path: Path, cls: str, title: str, input_shape, ctor_kv):

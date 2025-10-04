@@ -3,7 +3,7 @@
 This repo trains two small CNN variants for CIFAR-10 under strict design rules.
 
 **Design rules**
-- No MaxPool; downsampling is done with **exactly three 3×3, stride=2** convolutions *(Net)* or **no downsampling** with **progressive dilation** *(NetDilated)*.  
+- No MaxPool — downsampling is done with **exactly three 3×3, stride=2** convolutions in *(Net)*, or **no downsampling** at all (feature map kept at full resolution) with **progressively increasing dilation** in *(NetDilated)*.
 - Use **Depthwise-Separable** convolutions (not in block 1).  
 - Include **one dilated conv** in the final block *(Net)*; **multiple increasing dilations** in *(NetDilated)*.  
 - **GAP** head → **Linear(10)** for class logits.  
@@ -424,7 +424,14 @@ Both **Net** and **NetDilated** models meet the target accuracy (≥ 85 %) while
 python visualize_augmentations.py --data ./data --n-samples 16
 ```
 
-Example output → `results/augmentations/augmented_grid.png`
+Example output → results/augmentations_plots/aug_demo.png
+
+<!-- AUG_PLOT -->
+<p><strong>Augmentation Demo</strong><br>
+<img src="results/augmentations_plots/aug_demo.png" alt="Augmentation Demo" width="900">
+</p>
+<!-- /AUG_PLOT -->
+
 
 ---
 
