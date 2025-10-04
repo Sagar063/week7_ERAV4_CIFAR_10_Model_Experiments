@@ -1,11 +1,12 @@
+
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Inject latest metrics and plots into README.md (schema-agnostic).
+Inject latest metrics, plots, and **auto-computed Receptive Field (RF)** tables into README.md.
 
-Supported train_log.csv schemas:
-1) New (wide) schema: epoch,train_loss,train_acc,test_loss,test_acc,lr
-2) Old (long) schema: epoch,phase,loss,acc
+Layout assumption:
+- This script lives at repo root: <repo_root>/update_readme.py
+- RF helpers live in: <repo_root>/utils/rf_autogen.py and <repo_root>/utils/rf_utils.py
 
 Also embeds (if present):
 - results/plots/test_samples_grid.png
@@ -15,26 +16,52 @@ Also embeds (if present):
 - results/plots/cm.png
 - results/plots/test_samples/*.png
 - results/plots/augmented_samples/*.png
-
 Blocks updated/created in README.md:
 - <!-- RESULTS --> ... <!-- /RESULTS -->
 - <!-- PLOTS --> ... <!-- /PLOTS -->
 - <!-- TILE_GALLERY --> ... <!-- /TILE_GALLERY -->
 - <!-- VISUALIZATION --> ... <!-- /VISUALIZATION -->
-
 Usage:
-    python update_readme.py
+  python update_readme.py \
+
+    --rf models/net.py:Net:"RF: Net (32x32)" \
+
+    --rf models/net_dilated.py:NetDilated:"RF: NetDilated (32x32)" \
+
+    --rf-input 3 32 32 \
+
+    --rf-ctor num_classes=10
 """
+from __future__ import annotations
+
 from pathlib import Path
 import re
 import pandas as pd
 from datetime import datetime
 import glob
+import argparse
+import sys
 
-ROOT = Path(__file__).parent
+ROOT = Path(__file__).parent.resolve()
 README = ROOT / "README.md"
 LOG = ROOT / "results" / "train_log.csv"
 MODEL_SUMMARY = ROOT / "results" / "model_summary.txt"
+
+# Ensure utils/ is importable, then import rf_autogen symbols
+UTILS_DIR = (ROOT / "utils").resolve()
+if UTILS_DIR.exists() and str(UTILS_DIR) not in sys.path:
+    sys.path.insert(0, str(UTILS_DIR))
+
+try:
+    import utils.rf_autogen as _rf
+    rf_markdown_for_model = _rf.rf_markdown_for_model
+    parse_kv = _rf.parse_kv
+except Exception as e:
+    rf_markdown_for_model = None  # type: ignore
+    parse_kv = None  # type: ignore
+    _RF_IMPORT_ERROR = str(e)
+else:
+    _RF_IMPORT_ERROR = ""
 
 PLOTS = [
     ("Test samples (grid)", "results/plots/test_samples_grid.png"),
@@ -48,6 +75,7 @@ TILES = [
     ("Augmented sample tiles", "results/plots/augmented_samples"),
 ]
 
+
 def _block(md: str, tag: str, content: str) -> str:
     start = f"<!-- {tag} -->"
     end = f"<!-- /{tag} -->"
@@ -55,11 +83,8 @@ def _block(md: str, tag: str, content: str) -> str:
     block = f"{start}\n{content.rstrip()}\n{end}"
     return pattern.sub(block, md) if pattern.search(md) else md.rstrip() + "\n\n" + block + "\n"
 
+
 def _format_results_table(df: pd.DataFrame) -> str:
-    """
-    Produce a small summary table, handling both schemas.
-    """
-    # New schema?
     wide = {"epoch","train_loss","train_acc","test_loss","test_acc"}.issubset(set(df.columns))
     if wide:
         best_idx = df["test_acc"].idxmax()
@@ -76,7 +101,6 @@ def _format_results_table(df: pd.DataFrame) -> str:
         ]
         return "\n".join(rows)
 
-    # Old schema? (long format with phase)
     long = {"epoch","phase","loss","acc"}.issubset(set(df.columns))
     if long:
         test = df[df["phase"] == "test"]
@@ -97,8 +121,8 @@ def _format_results_table(df: pd.DataFrame) -> str:
         rows.append(f"| Updated | {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} |")
         return "\n".join(rows)
 
-    # Unknown schema
     return "_Unrecognized train_log.csv schema (expected wide or long)._"
+
 
 def _format_plots_section() -> str:
     lines = []
@@ -109,8 +133,8 @@ def _format_plots_section() -> str:
             lines.append(f'<img src="{rel}" alt="{title}" width="720"></p>\n')
     return "\n".join(lines).rstrip() or "_No plots found yet._"
 
+
 def _format_tile_gallery() -> str:
-    # Show up to 8 tiles from each directory
     groups = []
     for label, folder in TILES:
         pf = ROOT / folder
@@ -121,7 +145,6 @@ def _format_tile_gallery() -> str:
             continue
         row = [f"<h4>{label}</h4>", "<p>"]
         for im in imgs:
-            # IMPORTANT: make the path RELATIVE to the repo root (not absolute on your machine)
             rel = Path(im).resolve().relative_to(ROOT.resolve()).as_posix()
             row.append(f'<img src="{rel}" width="128" style="margin:4px;">')
         row.append("</p>")
@@ -139,6 +162,7 @@ def _format_visualization_usage() -> str:
         "_Why_: sanity-check your Albumentations pipeline and confirm computed mean/std are used.\n"
     )
 
+
 def _format_model_summary() -> str:
     if MODEL_SUMMARY.exists():
         txt = MODEL_SUMMARY.read_text(encoding="utf-8")
@@ -149,9 +173,57 @@ def _format_model_summary() -> str:
         )
     return "_No model summary found. Train once to generate it (results/model_summary.txt)._"
 
+
+# ------------------------- RF INTEGRATION -------------------------
+
+def _parse_rf_specs(args) -> list[dict]:
+    specs = []
+    for spec in (args.rf or []):
+        parts = spec.split(":", 2)
+        if len(parts) < 2:
+            raise SystemExit(f"--rf expects 'path.py:ClassName:Title' (Title optional). Got: {spec}")
+        path = parts[0].strip()
+        cls = parts[1].strip()
+        title = parts[2].strip() if len(parts) == 3 else f"RF: {cls}"
+        specs.append({"path": path, "cls": cls, "title": title})
+    return specs
+
+
+def _format_rf_section(args) -> str:
+    if rf_markdown_for_model is None:
+        msg = "_rf_autogen import failed; skipping RF section._"
+        if 'RF_IMPORT_ERROR' in globals() and _RF_IMPORT_ERROR:
+            msg += f" Error: {_RF_IMPORT_ERROR}"
+        return msg
+
+    rf_specs = _parse_rf_specs(args)
+    if not rf_specs:
+        return "_No RF models specified yet. Re-run with --rf path.py:Class:Title to include a table._"
+
+    pieces = []
+    ctor = parse_kv(args.rf_ctor) if parse_kv and args.rf_ctor else {}
+    for s in rf_specs:
+        model_path = (ROOT / s["path"]).resolve()
+        md = rf_markdown_for_model(
+            model_path, s["cls"], s["title"],
+            (args.rf_input[0], args.rf_input[1], args.rf_input[2]), ctor=ctor
+        )
+        pieces.append(md)
+    return "\n\n".join(pieces)
+
+
+def _build_argparser() -> argparse.ArgumentParser:
+    ap = argparse.ArgumentParser(add_help=True)
+    ap.add_argument('--rf', action='append', default=[], help="Repeatable: 'path.py:ClassName:Title' (Title optional)")
+    ap.add_argument('--rf-input', nargs=3, type=int, default=[3, 32, 32], metavar=('C','H','W'), help='Input tensor shape for RF (CxHxW)')
+    ap.add_argument('--rf-ctor', type=str, default="", help="Constructor kwargs, e.g., 'num_classes=10,channels=64' (no spaces)")
+    return ap
+
+
 def main():
     if not README.exists():
         raise SystemExit("README.md not found. Create one first.")
+    args = _build_argparser().parse_args()
 
     md = README.read_text(encoding="utf-8")
 
@@ -166,24 +238,32 @@ def main():
         results_md = "_No train_log.csv yet. Run training first._"
     md = _block(md, "RESULTS", results_md)
 
-    # PLOTS (grids, curves, confusion matrix)
+    # PLOTS
     plots_md = _format_plots_section()
     md = _block(md, "PLOTS", plots_md)
 
-    # TILE GALLERY (optional)
+    # TILE GALLERY
     tiles_md = _format_tile_gallery()
     md = _block(md, "TILE_GALLERY", tiles_md)
 
-    # VISUALIZATION usage (commands + purpose)
+    # VISUALIZATION
     vis_md = _format_visualization_usage()
     md = _block(md, "VISUALIZATION", vis_md)
 
-    # MODEL SUMMARY (optional)
+    # MODEL SUMMARY
     model_md = _format_model_summary()
     md = _block(md, "MODEL_SUMMARY", model_md)
 
+    # RF (auto-computed from your real model)
+    try:
+        rf_md = _format_rf_section(args)
+    except Exception as e:
+        rf_md = f"_RF extraction failed: {e}_"
+    md = _block(md, "RF", rf_md)
+
     README.write_text(md, encoding="utf-8")
     print("README.md updated.")
+
 
 if __name__ == "__main__":
     main()

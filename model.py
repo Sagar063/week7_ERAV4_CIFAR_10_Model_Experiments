@@ -35,7 +35,7 @@ class Net(nn.Module):
     - DW-Separable used (not in first block)
     - Dilated conv in last block
     - GAP + Linear(10)
-    Total params ~66k (excluding BN affine which is tiny), RF > 44.
+    Total params ~84k (excluding BN affine which is tiny), RF > 44.
     """
     def __init__(self, num_classes=10):
         super().__init__()

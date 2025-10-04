@@ -9,7 +9,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from torch.optim.lr_scheduler import StepLR
+# from torch.optim.lr_scheduler import StepLR  # not used now (OneCycleLR instead)
 from torch.utils.data import DataLoader
 
 import matplotlib.pyplot as plt
@@ -130,37 +130,6 @@ def save_stats(path: str, mean, std):
 
 
 # -------------------- Model summary --------------------
-# def show_model_summary(model, input_size=(3,32,32), device_str="cpu"):
-#     print("\n" + "="*60)
-#     print("🧾 Model Summary")
-#     print("-"*60)
-#     try:
-#         from torchinfo import summary as ti_summary
-#         print(ti_summary(model, input_size=(1, *input_size), device=device_str))
-#     except Exception:
-#         try:
-#             from torchsummary import summary as ts_summary
-#             ts_summary(model, input_size=input_size, device=device_str)
-#         except Exception:
-#             print("Install torchinfo or torchsummary for layer-wise summary.")
-#     print("="*60 + "\n")
-
-# def get_model_summary_text(model, input_size=(3, 32, 32), device_str="cpu"):
-#     try:
-#         from torchinfo import summary as ti_summary
-#         s = ti_summary(model, input_size=(1, *input_size), device=device_str)
-#         return str(s)
-#     except Exception:
-#         pass
-#     try:
-#         from torchsummary import summary as ts_summary
-#         buf = io.StringIO()
-#         with contextlib.redirect_stdout(buf):
-#             ts_summary(model, input_size=input_size, device=device_str)
-#         return buf.getvalue()
-#     except Exception:
-#         return "Install torchinfo or torchsummary for a detailed layer-wise summary."
-
 def show_model_summary(model, input_size=(3,32,32), device_str="cpu"):
     print("\n" + "="*60)
     print("🧾 Model Summary")
@@ -199,8 +168,12 @@ def get_model_summary_text(model, input_size=(3, 32, 32), device_str="cpu"):
     except Exception:
         return "Install torchinfo or torchsummary for a detailed layer-wise summary."
 
+
 # -------------------- Train / Eval with live progress --------------------
-def train_one_epoch(model, loader, device, criterion, optimizer):
+def train_one_epoch(model, loader, device, criterion, optimizer, scheduler=None):
+    """
+    OneCycleLR: pass scheduler and we step it *per batch* after optimizer.step().
+    """
     model.train()
     running_loss, correct, total = 0.0, 0, 0
     pbar = tqdm(loader, desc="train", leave=False)
@@ -211,6 +184,9 @@ def train_one_epoch(model, loader, device, criterion, optimizer):
         loss = criterion(out, yb)
         loss.backward()
         optimizer.step()
+        if scheduler is not None:
+            scheduler.step()  # per-batch for OneCycleLR
+
         bs = xb.size(0)
         running_loss += loss.item() * bs
         pred = out.argmax(1)
@@ -287,13 +263,22 @@ def _save_checkpoint(path: Path, model, optimizer, scheduler, epoch: int, best_a
     if extra: payload.update(extra)
     torch.save(payload, str(path))
 
-def _load_checkpoint(path: Path, model, optimizer, scheduler):
+# def _load_checkpoint(path: Path, model, optimizer, scheduler):
+#     ckpt = torch.load(str(path), map_location="cpu")
+#     model.load_state_dict(ckpt["model_state"])
+#     if optimizer is not None and "optimizer_state" in ckpt and ckpt["optimizer_state"] is not None:
+#         optimizer.load_state_dict(ckpt["optimizer_state"])
+#     if scheduler is not None and "scheduler_state" in ckpt and ckpt["scheduler_state"] is not None:
+#         scheduler.load_state_dict(ckpt["scheduler_state"])
+#     start_epoch = int(ckpt.get("epoch", 0)) + 1
+#     best_acc = float(ckpt.get("best_acc", 0.0))
+#     return start_epoch, best_acc
+def _load_checkpoint(path: Path, model, optimizer, scheduler=None):
     ckpt = torch.load(str(path), map_location="cpu")
     model.load_state_dict(ckpt["model_state"])
     if optimizer is not None and "optimizer_state" in ckpt and ckpt["optimizer_state"] is not None:
         optimizer.load_state_dict(ckpt["optimizer_state"])
-    if scheduler is not None and "scheduler_state" in ckpt and ckpt["scheduler_state"] is not None:
-        scheduler.load_state_dict(ckpt["scheduler_state"])
+    # DO NOT load scheduler_state — we will rebuild OneCycleLR with the new plan
     start_epoch = int(ckpt.get("epoch", 0)) + 1
     best_acc = float(ckpt.get("best_acc", 0.0))
     return start_epoch, best_acc
@@ -305,12 +290,15 @@ def main():
     p.add_argument("--data", default="./data", type=str)
     p.add_argument("--epochs", default=25, type=int)
     p.add_argument("--batch-size", default=128, type=int)
-    p.add_argument("--lr", default=1e-3, type=float)
+    p.add_argument("--lr", default=1e-1, type=float)  # OneCycle max_lr; try 0.1
     p.add_argument("--device", default="auto", choices=["auto", "cpu", "cuda"])
     p.add_argument("--workers", default=2, type=int)
     p.add_argument("--seed", default=42, type=int)
+
+    # kept for compatibility (unused with OneCycle, safe to leave)
     p.add_argument("--step-size", default=10, type=int)
     p.add_argument("--gamma", default=0.5, type=float)
+
     p.add_argument("--model", default="basic", choices=["basic", "dilated"])
     # stats cache
     p.add_argument("--stats-cache", default="results/cifar10_stats.json", type=str)
@@ -371,11 +359,30 @@ def main():
     test_loader  = DataLoader(ds_test,  batch_size=max(args.batch_size, 256), shuffle=False,
                               num_workers=args.workers, pin_memory=True)
 
-    # 4) Model / Optim / Sched (create first)
+    # 4) Model / Optim / OneCycle Sched
     model = Net().to(device) if args.model == "basic" else NetDilated().to(device)
     criterion = nn.CrossEntropyLoss()
-    optimizer = optim.Adam(model.parameters(), lr=args.lr)
-    scheduler = StepLR(optimizer, step_size=args.step_size, gamma=args.gamma)
+
+    # Optimizer: SGD + Nesterov + WD
+    optimizer = torch.optim.SGD(
+        model.parameters(),
+        lr=args.lr,              # OneCycle max_lr
+        momentum=0.9,
+        weight_decay=5e-4,
+        nesterov=True
+    )
+
+    # OneCycleLR: needs steps_per_epoch
+    steps_per_epoch = len(train_loader)
+    scheduler = torch.optim.lr_scheduler.OneCycleLR(
+        optimizer,
+        max_lr=args.lr,
+        epochs=args.epochs,
+        steps_per_epoch=steps_per_epoch,
+        pct_start=0.15,
+        div_factor=10,
+        final_div_factor=100
+    )
 
     # 4a) Resume BEFORE printing/saving any summary
     ckpt_dir = Path(args.ckpt_dir); ckpt_dir.mkdir(parents=True, exist_ok=True)
@@ -429,16 +436,35 @@ def main():
                         tiles_dir="results/plots/augmented_samples", max_n=16, upscale=4)
 
     # 6) Finalize start epoch (append log vs checkpoint)
+ # --- after you have train_loader and model+optimizer ---
+# Determine final start_epoch (you already compute prev_last_epoch and start_epoch_chkpt)
     start_epoch = max(prev_last_epoch + 1, start_epoch_chkpt)
+
+    # Build OneCycleLR aligned to the *new* training plan
+    steps_per_epoch = len(train_loader)
+    total_steps = args.epochs * steps_per_epoch
+    completed_steps = max(0, (start_epoch - 1) * steps_per_epoch)
+
+    scheduler = torch.optim.lr_scheduler.OneCycleLR(
+        optimizer,
+        max_lr=args.lr,
+        total_steps=total_steps,       # use total_steps instead of (epochs, steps_per_epoch) pair
+        pct_start=0.15,
+        div_factor=10,
+        final_div_factor=100,
+        last_epoch=completed_steps - 1 # ← places scheduler exactly at resume step
+    )
+
 
     # 7) Training loop (history + checkpoints)
     start_time = time.time()
     opt_name = _optimizer_name(optimizer)
 
     for epoch in tqdm(range(start_epoch, args.epochs + 1), desc="[train] epochs", leave=True):
-        tr_loss, tr_acc = train_one_epoch(model, train_loader, device, criterion, optimizer)
+        tr_loss, tr_acc = train_one_epoch(model, train_loader, device, criterion, optimizer, scheduler)
         te_loss, te_acc, y_true, y_pred = evaluate(model, test_loader, device, criterion)
-        scheduler.step()
+
+        # NOTE: No scheduler.step() here for OneCycleLR (we step per-batch).
 
         tqdm.write(f"Epoch {epoch:03d}/{args.epochs} | "
                    f"Train: loss={tr_loss:.4f} acc={tr_acc*100:.2f}% | "
