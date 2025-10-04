@@ -1,0 +1,103 @@
+# =========================================================
+# ERA V4 Week7 - CIFAR-10 Model Experiments
+# =========================================================
+
+# ----------------------------
+# Python bytecode / cache
+# ----------------------------
+__pycache__/
+*.py[cod]
+*$py.class
+
+# ----------------------------
+# Virtual environments
+# ----------------------------
+.venv/
+venv/
+env/
+ENV/
+
+# ----------------------------
+# IDE / editor settings
+# ----------------------------
+.vscode/
+.idea/
+
+# ----------------------------
+# System files
+# ----------------------------
+.DS_Store
+Thumbs.db
+
+# ----------------------------
+# Build / dist artifacts
+# ----------------------------
+build/
+dist/
+*.egg-info/
+*.egg
+
+# ----------------------------
+# Logs / temp / misc
+# ----------------------------
+*.log
+*.tmp
+*.bak
+*.out
+*.err
+
+# ----------------------------
+# Dataset storage (CIFAR-10 etc.)
+# ----------------------------
+data/
+datasets/
+# You can keep a placeholder so the folder exists:
+!data/.gitkeep
+
+# ----------------------------
+# Model checkpoints / large binaries
+# ----------------------------
+*.pth
+*.pt
+*.ckpt
+*.onnx
+*.tar
+
+# ----------------------------
+# Results folder: KEEP plots, CSVs, text, summaries
+# ----------------------------
+# Ignore large binary files but keep visuals and reports
+!results/
+results/*.pth
+results/*.pt
+results/*.tar
+# Keep CSVs, PNGs, PDFs, text, Excel
+!results/**/*.csv
+!results/**/*.png
+!results/**/*.pdf
+!results/**/*.txt
+!results/**/*.xlsx
+!results/**/*.json
+!results/**/*.html
+
+# ----------------------------
+# Matplotlib cache
+# ----------------------------
+.matplotlib/
+
+# ----------------------------
+# IPython / Jupyter
+# ----------------------------
+.ipynb_checkpoints/
+profile_default/
+ipython_config.py
+
+# ----------------------------
+# Optional: keep core scripts explicitly
+# ----------------------------
+!train.py
+!model.py
+!update_readme.py
+!README.md
+!requirements.txt
+!dataset/
