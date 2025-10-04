@@ -50,11 +50,11 @@ After B4, the feature map is 4×4 (from 32→16→8→4), then **GAP** → 1×1,
 <!-- RESULTS -->
 | Metric | Value |
 |---|---:|
-| **Best Test Acc** | **74.91%** (epoch 7) |
-| Best Test Loss | 0.7063 |
-| Last Train Acc | 68.68% (epoch 7) |
-| Last Train Loss | 0.8833 |
-| Updated | 2025-10-04 18:07:35 |
+| **Best Test Acc** | **85.31%** (epoch 60) |
+| Best Test Loss | 0.4362 |
+| Last Train Acc | 82.96% (epoch 60) |
+| Last Train Loss | 0.4838 |
+| Updated | 2025-10-04 19:28:57 |
 <!-- /RESULTS -->
 
 <!-- PLOTS -->
@@ -90,13 +90,13 @@ After B4, the feature map is 4×4 (from 32→16→8→4), then **GAP** → 1×1,
 <h4>Augmented sample tiles</h4>
 <p>
 <img src="results/plots/augmented_samples/img_00_bird.png" width="128" style="margin:4px;">
+<img src="results/plots/augmented_samples/img_00_horse.png" width="128" style="margin:4px;">
+<img src="results/plots/augmented_samples/img_01_airplane.png" width="128" style="margin:4px;">
 <img src="results/plots/augmented_samples/img_01_cat.png" width="128" style="margin:4px;">
+<img src="results/plots/augmented_samples/img_02_airplane.png" width="128" style="margin:4px;">
 <img src="results/plots/augmented_samples/img_02_truck.png" width="128" style="margin:4px;">
 <img src="results/plots/augmented_samples/img_03_deer.png" width="128" style="margin:4px;">
-<img src="results/plots/augmented_samples/img_04_ship.png" width="128" style="margin:4px;">
-<img src="results/plots/augmented_samples/img_05_deer.png" width="128" style="margin:4px;">
-<img src="results/plots/augmented_samples/img_06_frog.png" width="128" style="margin:4px;">
-<img src="results/plots/augmented_samples/img_07_bird.png" width="128" style="margin:4px;">
+<img src="results/plots/augmented_samples/img_03_truck.png" width="128" style="margin:4px;">
 </p>
 <!-- /TILE_GALLERY -->
 
