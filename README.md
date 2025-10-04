@@ -50,11 +50,11 @@ After B4, the feature map is 4×4 (from 32→16→8→4), then **GAP** → 1×1,
 <!-- RESULTS -->
 | Metric | Value |
 |---|---:|
-| **Best Test Acc** | **58.95%** (epoch 2) |
-| Best Test Loss | 1.1343 |
-| Last Train Acc | 54.06% (epoch 2) |
-| Last Train Loss | 1.2615 |
-| Updated | 2025-10-04 17:13:22 |
+| **Best Test Acc** | **74.91%** (epoch 7) |
+| Best Test Loss | 0.7063 |
+| Last Train Acc | 68.68% (epoch 7) |
+| Last Train Loss | 0.8833 |
+| Updated | 2025-10-04 18:07:35 |
 <!-- /RESULTS -->
 
 <!-- PLOTS -->

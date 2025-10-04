@@ -130,37 +130,74 @@ def save_stats(path: str, mean, std):
 
 
 # -------------------- Model summary --------------------
+# def show_model_summary(model, input_size=(3,32,32), device_str="cpu"):
+#     print("\n" + "="*60)
+#     print("🧾 Model Summary")
+#     print("-"*60)
+#     try:
+#         from torchinfo import summary as ti_summary
+#         print(ti_summary(model, input_size=(1, *input_size), device=device_str))
+#     except Exception:
+#         try:
+#             from torchsummary import summary as ts_summary
+#             ts_summary(model, input_size=input_size, device=device_str)
+#         except Exception:
+#             print("Install torchinfo or torchsummary for layer-wise summary.")
+#     print("="*60 + "\n")
+
+# def get_model_summary_text(model, input_size=(3, 32, 32), device_str="cpu"):
+#     try:
+#         from torchinfo import summary as ti_summary
+#         s = ti_summary(model, input_size=(1, *input_size), device=device_str)
+#         return str(s)
+#     except Exception:
+#         pass
+#     try:
+#         from torchsummary import summary as ts_summary
+#         buf = io.StringIO()
+#         with contextlib.redirect_stdout(buf):
+#             ts_summary(model, input_size=input_size, device=device_str)
+#         return buf.getvalue()
+#     except Exception:
+#         return "Install torchinfo or torchsummary for a detailed layer-wise summary."
+
 def show_model_summary(model, input_size=(3,32,32), device_str="cpu"):
     print("\n" + "="*60)
     print("🧾 Model Summary")
     print("-"*60)
     try:
         from torchinfo import summary as ti_summary
-        print(ti_summary(model, input_size=(1, *input_size), device=device_str))
+        s = ti_summary(model, input_size=(1, *input_size), device=device_str, verbose=0)  # silent
+        print(s)  # print once
     except Exception:
         try:
             from torchsummary import summary as ts_summary
-            ts_summary(model, input_size=input_size, device=device_str)
+            import io, contextlib
+            buf = io.StringIO()
+            with contextlib.redirect_stdout(buf):
+                ts_summary(model, input_size=input_size, device=device_str)
+            print(buf.getvalue())
         except Exception:
             print("Install torchinfo or torchsummary for layer-wise summary.")
     print("="*60 + "\n")
 
+
 def get_model_summary_text(model, input_size=(3, 32, 32), device_str="cpu"):
     try:
         from torchinfo import summary as ti_summary
-        s = ti_summary(model, input_size=(1, *input_size), device=device_str)
+        s = ti_summary(model, input_size=(1, *input_size), device=device_str, verbose=0)  # silent
         return str(s)
     except Exception:
         pass
     try:
         from torchsummary import summary as ts_summary
+        import io, contextlib
         buf = io.StringIO()
         with contextlib.redirect_stdout(buf):
             ts_summary(model, input_size=input_size, device=device_str)
         return buf.getvalue()
     except Exception:
         return "Install torchinfo or torchsummary for a detailed layer-wise summary."
-
 
 # -------------------- Train / Eval with live progress --------------------
 def train_one_epoch(model, loader, device, criterion, optimizer):
@@ -284,12 +321,21 @@ def main():
                    help="Where to save checkpoints.")
     p.add_argument("--resume", default="", type=str,
                    help="Path to a checkpoint to resume from (e.g., results/checkpoints/last.pth).")
-    p.add_argument("--save-every", default=10, type=int,
+    p.add_argument("--save-every", default=0, type=int,
                    help="Save a named checkpoint every N epochs (0=off).")
     args = p.parse_args()
 
     seed_all(args.seed)
     device = get_device(args.device)
+
+    # Device print
+    print("=" * 60)
+    if device.type == "cuda":
+        print(f"🚀 Using GPU: {torch.cuda.get_device_name(0)}")
+        print(f"   CUDA capability: {torch.cuda.get_device_capability(0)}")
+    else:
+        print("💻 Using CPU")
+    print("=" * 60)
 
     # 1) Load/compute stats from TRAIN split only
     mean, std = (None, None)
@@ -325,25 +371,52 @@ def main():
     test_loader  = DataLoader(ds_test,  batch_size=max(args.batch_size, 256), shuffle=False,
                               num_workers=args.workers, pin_memory=True)
 
-    # 4) Model / Optim / Sched
+    # 4) Model / Optim / Sched (create first)
     model = Net().to(device) if args.model == "basic" else NetDilated().to(device)
-    n_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
-    print(f"Trainable parameters: {n_params}")
-
-    # Save a model summary text for README
-    summary_txt = get_model_summary_text(model, input_size=(3, 32, 32),
-                                         device_str=("cuda" if device.type == "cuda" else "cpu"))
-    Path("results").mkdir(parents=True, exist_ok=True)
-    (Path("results") / "model_summary.txt").write_text(
-        f"Trainable parameters: {n_params}\n\n{summary_txt}\n", encoding="utf-8"
-    )
-
-    # Optional console summary
-    show_model_summary(model, input_size=(3, 32, 32), device_str=("cuda" if device.type == "cuda" else "cpu"))
-
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.Adam(model.parameters(), lr=args.lr)
     scheduler = StepLR(optimizer, step_size=args.step_size, gamma=args.gamma)
+
+    # 4a) Resume BEFORE printing/saving any summary
+    ckpt_dir = Path(args.ckpt_dir); ckpt_dir.mkdir(parents=True, exist_ok=True)
+    log_path = Path("results") / "train_log.csv"
+    prev_last_epoch = 0
+    history_rows = []
+    if log_path.exists():
+        try:
+            df_prev = pd.read_csv(log_path)
+            if "epoch" in df_prev.columns and len(df_prev):
+                prev_last_epoch = int(df_prev["epoch"].max())
+                history_rows = df_prev.to_dict("records")
+        except Exception:
+            pass
+
+    start_epoch_chkpt = 1
+    best_acc, best_ep = -1.0, -1
+    if args.resume:
+        rp = Path(args.resume)
+        if rp.exists():
+            print(f"▶ Resuming from: {rp}")
+            start_epoch_chkpt, best_acc = _load_checkpoint(rp, model, optimizer, scheduler)
+            print(f"Resumed at epoch {start_epoch_chkpt}, best_acc so far: {best_acc:.4f}")
+        else:
+            print(f"⚠ Resume path not found: {rp} (training from scratch)")
+
+    # 4b) NOW compute params and print/save model summary AFTER resume
+    n_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
+    print(f"Trainable parameters: {n_params}")
+
+    Path("results").mkdir(parents=True, exist_ok=True)
+    summary_txt = get_model_summary_text(
+        model, input_size=(3, 32, 32),
+        device_str=("cuda" if device.type == "cuda" else "cpu")
+    )
+    (Path("results") / "model_summary.txt").write_text(
+        f"Trainable parameters: {n_params}\n\n{summary_txt}\n", encoding="utf-8"
+    )
+    # Console summary (single print)
+    show_model_summary(model, input_size=(3, 32, 32),
+                       device_str=("cuda" if device.type == "cuda" else "cpu"))
 
     # 5) Quick visualization (crisp grid + tiles)
     xb0, yb0 = next(iter(test_loader))
@@ -355,22 +428,10 @@ def main():
                         mean, std, grid_path="results/plots/augmented_samples_grid.png",
                         tiles_dir="results/plots/augmented_samples", max_n=16, upscale=4)
 
-    # 6) Resume setup
-    ckpt_dir = Path(args.ckpt_dir); ckpt_dir.mkdir(parents=True, exist_ok=True)
-    start_epoch, best_acc, best_ep = 1, -1.0, -1
-    if args.resume:
-        rp = Path(args.resume)
-        if rp.exists():
-            print(f"▶ Resuming from: {rp}")
-            start_epoch, best_acc = _load_checkpoint(rp, model, optimizer, scheduler)
-            print(f"Resumed at epoch {start_epoch}, best_acc so far: {best_acc:.4f}")
-        else:
-            print(f"⚠ Resume path not found: {rp} (training from scratch)")
+    # 6) Finalize start epoch (append log vs checkpoint)
+    start_epoch = max(prev_last_epoch + 1, start_epoch_chkpt)
 
     # 7) Training loop (history + checkpoints)
-    log_path = Path("results") / "train_log.csv"
-    log_path.parent.mkdir(parents=True, exist_ok=True)
-    history_rows = []
     start_time = time.time()
     opt_name = _optimizer_name(optimizer)
 
@@ -398,13 +459,14 @@ def main():
         # save best (by test acc)
         if te_acc > best_acc:
             best_acc, best_ep = te_acc, epoch
-            nice_name = _format_ckpt_name(args.model, epoch, te_acc, te_loss, opt_name)
             _save_checkpoint(ckpt_dir / "best.pth", model, optimizer, scheduler,
                              epoch=epoch, best_acc=best_acc, args=args,
                              extra={"val_acc": te_acc, "val_loss": te_loss})
-            _save_checkpoint(ckpt_dir / nice_name, model, optimizer, scheduler,
-                             epoch=epoch, best_acc=best_acc, args=args,
-                             extra={"val_acc": te_acc, "val_loss": te_loss})
+            if args.save_every > 0:
+                nice_name = _format_ckpt_name(args.model, epoch, te_acc, te_loss, opt_name)
+                _save_checkpoint(ckpt_dir / nice_name, model, optimizer, scheduler,
+                                 epoch=epoch, best_acc=best_acc, args=args,
+                                 extra={"val_acc": te_acc, "val_loss": te_loss})
 
         # optional periodic snapshots
         if args.save_every > 0 and (epoch % args.save_every == 0):
@@ -413,27 +475,33 @@ def main():
                              epoch=epoch, best_acc=best_acc, args=args,
                              extra={"val_acc": te_acc, "val_loss": te_loss})
 
-    total_time = time.time() - start_time
-    pd.DataFrame(history_rows).to_csv(log_path, index=False)
+        # write the growing log each epoch to be extra safe
+        pd.DataFrame(history_rows).to_csv(log_path, index=False)
 
-    # 8) Curves
-    df = pd.DataFrame(history_rows)
+    total_time = time.time() - start_time
+
+    # 8) De-duplicate by epoch (just in case) and save final log once more
+    df_final = pd.DataFrame(history_rows)
+    df_final = df_final.sort_values("epoch").drop_duplicates(subset=["epoch"], keep="last")
+    df_final.to_csv(log_path, index=False)
+
+    # 9) Curves
     Path("results/plots").mkdir(parents=True, exist_ok=True)
     plt.figure(figsize=(8, 4))
-    plt.plot(df["epoch"], df["train_acc"], label="train_acc")
-    plt.plot(df["epoch"], df["test_acc"], label="test_acc")
+    plt.plot(df_final["epoch"], df_final["train_acc"], label="train_acc")
+    plt.plot(df_final["epoch"], df_final["test_acc"], label="test_acc")
     plt.xlabel("Epoch"); plt.ylabel("Accuracy"); plt.title("Accuracy curves")
     plt.grid(True, alpha=0.3); plt.legend()
     plt.tight_layout(); plt.savefig("results/plots/acc_curves.png", dpi=150); plt.close()
 
     plt.figure(figsize=(8, 4))
-    plt.plot(df["epoch"], df["train_loss"], label="train_loss")
-    plt.plot(df["epoch"], df["test_loss"], label="test_loss")
+    plt.plot(df_final["epoch"], df_final["train_loss"], label="train_loss")
+    plt.plot(df_final["epoch"], df_final["test_loss"], label="test_loss")
     plt.xlabel("Epoch"); plt.ylabel("Loss"); plt.title("Loss curves")
     plt.grid(True, alpha=0.3); plt.legend()
     plt.tight_layout(); plt.savefig("results/plots/loss_curves.png", dpi=150); plt.close()
 
-    # 9) Confusion matrix & classification report (last epoch predictions)
+    # 10) Confusion matrix & classification report (last epoch predictions of THIS run)
     cm = confusion_matrix(y_true, y_pred)
     plot_confusion_matrix(cm, classes=classes, normalize=True,
                           title="CIFAR-10 Confusion (normalized)",
@@ -442,16 +510,18 @@ def main():
     pd.DataFrame(cls_rep).to_csv("results/classification_report.csv")
 
     print(f"\nBest test acc: {best_acc*100:.2f}% at epoch {best_ep}")
-    print(f"Total train time: {total_time:.1f}s")
+    print(f"Total train time (this session): {total_time:.1f}s")
     print("Saved:")
-    print("  - results/train_log.csv")
+    print("  - results/train_log.csv   (appended)")
     print("  - results/plots/acc_curves.png")
     print("  - results/plots/loss_curves.png")
     print("  - results/plots/cm.png")
-    print("  - results/classification_report.csv")
+    print("  - results/classification_report.csv  (overwritten for this session)")
     print(f"  - {ckpt_dir}/last.pth  (resume anytime)")
     print(f"  - {ckpt_dir}/best.pth  (best-by-acc)")
-    print(f"  - {ckpt_dir}/*_epoch_XXX_valacc_..._{_optimizer_name(optimizer)}.pth (named snapshots)")
+    if args.save_every > 0:
+        print(f"  - {ckpt_dir}/*_epoch_XXX_valacc_..._{_optimizer_name(optimizer)}.pth (periodic/named)")
+
 
 if __name__ == "__main__":
     main()
