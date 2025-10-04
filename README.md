@@ -77,26 +77,30 @@ python train.py --model dilated --resume results/dilated_model/checkpoints/last.
 week7_ERAV4_CIFAR_10_Model_Experiments/
 ├─ train.py
 ├─ model.py
+├─ visualize_augmentations.py
 ├─ utils/
-│  ├─ rf_utils.py
-│  └─ rf_autogen.py
+│ ├─ rf_utils.py
+│ └─ rf_autogen.py
 ├─ dataset/
-│  └─ cifar10.py
+│ └─ cifar10.py
 └─ results/
-   ├─ base_model/
-   │  ├─ train_log.csv
-   │  ├─ model_summary.txt
-   │  ├─ classification_report.csv
-   │  ├─ plots/
-   │  │  ├─ acc_curves.png
-   │  │  ├─ loss_curves.png
-   │  │  ├─ cm.png
-   │  │  ├─ test_samples_grid.png
-   │  │  └─ augmented_samples_grid.png
-   │  └─ checkpoints/{last.pth,best.pth}
-   ├─ dilated_model/     (same structure)
-   └─ combined/
-      └─ plots/{combined_acc.png, combined_loss.png}
+    ├─ base_model/
+    │ ├─ train_log.csv
+    │ ├─ model_summary.txt
+    │ ├─ classification_report.csv
+    │ ├─ plots/
+    │ │ ├─ acc_curves.png
+    │ │ ├─ loss_curves.png
+    │ │ ├─ cm.png
+    │ │ ├─ test_samples_grid.png
+    │ │ └─ augmented_samples_grid.png
+    │ └─ checkpoints/{last.pth, best.pth}
+    ├─ dilated_model/ (same structure as base_model/)
+    ├─ combined/
+    │ └─ plots/{combined_acc.png, combined_loss.png}
+    └─ augmentations_plots/
+      └─ aug_demo.png
+
 ```
 
 ---
