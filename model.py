@@ -80,57 +80,51 @@ class Net(nn.Module):
 
 class NetDilated(nn.Module):
     """
-    Dilated-only variant (bonus): no MaxPool, no stride>1 anywhere.
-    We expand receptive field via increasing dilations and keep spatial size at 32x32,
-    then use GAP -> Linear(10). Includes a DW-separable conv (not in block 1).
+    Dilation-only variant (bonus):
+      - No MaxPool; no stride > 1 anywhere (all stride=1)
+      - RF grown via progressively larger dilations (2, 4, 8)
+      - Includes Depthwise-Separable conv (C2 and C4)
+      - GAP + Linear(num_classes)
 
-    RF math (start RF=1, jump=1; each 3x3 adds 2*d):
-      B1: d=[1,1] -> +2 +2 = +4 -> RF=5
-      B2: d=[2,2] -> +4 +4 = +8 -> RF=13 (DW sep used here)
-      B3: d=[4,4] -> +8 +8 = +16 -> RF=29
-      B4: d=[8]   -> +16         -> RF=45 (>44)
+    RF sketch (start RF=1, jump=1; each 3x3 adds 2*d):
+      C1: d=1,1   -> +2 +2            -> RF 5
+      C2: d=2,2   -> +4 (DW) +4       -> RF 13
+      C3: d=4,4   -> +8 +8            -> RF 29
+      C4: d=8     -> +16 (DW)         -> RF 45  (>= 45 ✅)
     """
     def __init__(self, num_classes=10):
         super().__init__()
-        # Keep channels modest to stay well under 200k parameters.
-        # Use 1x1 to compress/expand without affecting RF.
-        # ------- C1 ------- (standard convs; no DW here)
-        self.c1a = ConvBlock(3,  32, k=3, stride=1, dilation=1)   # RF 3
-        self.c1b = ConvBlock(32, 48, k=3, stride=1, dilation=1)   # RF 5
+        # ---- C1 ---- (keep modest widths)
+        self.c1a = ConvBlock(3,  24, k=3, stride=1, dilation=1)    # RF 3
+        self.c1b = ConvBlock(24, 32, k=3, stride=1, dilation=1)    # RF 5
 
-        # ------- C2 ------- (DW-separable + dilation=2, then PW)
-        self.c2a_dw = DWSeparable(48, 64, stride=1, dilation=2)   # RF 9  (+4)
-        self.c2b_pw = ConvBlock(64, 64, k=1, stride=1, dilation=1)# RF 9
-        self.c2c    = ConvBlock(64, 80, k=3, stride=1, dilation=2)# RF 13 (+4)
+        # ---- C2 ---- (DW-sep with d=2, then 1x1, then 3x3 d=2)
+        self.c2a_dw = DWSeparable(32, 48, stride=1, dilation=2)    # RF 9  (+4)
+        self.c2b_pw = ConvBlock(48, 48, k=1, stride=1, dilation=1) # RF 9
+        self.c2c    = ConvBlock(48, 64, k=3, stride=1, dilation=2) # RF 13 (+4)
 
-        # ------- C3 ------- (dilation=4)
-        self.c3a_pw = ConvBlock(80, 96, k=1, stride=1, dilation=1)# RF 13
-        self.c3b    = ConvBlock(96, 96, k=3, stride=1, dilation=4)# RF 21 (+8)
-        self.c3c    = ConvBlock(96,112, k=3, stride=1, dilation=4)# RF 29 (+8)
+        # ---- C3 ---- (two 3x3 with d=4)
+        self.c3a_pw = ConvBlock(64, 80, k=1, stride=1, dilation=1) # RF 13
+        self.c3b    = ConvBlock(80, 80, k=3, stride=1, dilation=4) # RF 21 (+8)
+        self.c3c    = ConvBlock(80, 96, k=3, stride=1, dilation=4) # RF 29 (+8)
 
-        # ------- C4 ------- (strong dilation=8)
-        self.c4a    = DWSeparable(112,128, stride=1, dilation=8)  # RF 45 (+16)
+        # ---- C4 ---- (DW-sep with strong dilation=8)
+        self.c4a    = DWSeparable(96, 112, stride=1, dilation=8)   # RF 45 (+16)
+        self.c4b_pw = ConvBlock(112,112, k=1, stride=1, dilation=1)# RF 45
 
-        # Output head
-        self.c4b_pw = ConvBlock(128,128, k=1, stride=1, dilation=1)# RF 45
+        # ---- Head ----
         self.gap = nn.AdaptiveAvgPool2d(1)
-        self.fc  = nn.Linear(128, num_classes)
+        self.fc  = nn.Linear(112, num_classes)  # GAP output 112-D
 
     def forward(self, x):
-        # block 1
-        x = self.c1a(x)    # RF 3
-        x = self.c1b(x)    # RF 5
-        # block 2
-        x = self.c2a_dw(x) # RF 9
-        x = self.c2b_pw(x) # RF 9
-        x = self.c2c(x)    # RF 13
-        # block 3
-        x = self.c3a_pw(x) # RF 13
-        x = self.c3b(x)    # RF 21
-        x = self.c3c(x)    # RF 29
-        # block 4
-        x = self.c4a(x)    # RF 45 (>44)
-        x = self.c4b_pw(x) # RF 45
+        # C1
+        x = self.c1a(x); x = self.c1b(x)
+        # C2
+        x = self.c2a_dw(x); x = self.c2b_pw(x); x = self.c2c(x)
+        # C3
+        x = self.c3a_pw(x); x = self.c3b(x); x = self.c3c(x)
+        # C4
+        x = self.c4a(x); x = self.c4b_pw(x)
         # O
         x = self.gap(x)
         x = torch.flatten(x, 1)

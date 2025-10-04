@@ -313,6 +313,25 @@ def main():
                    help="Save a named checkpoint every N epochs (0=off).")
     args = p.parse_args()
 
+    model_dirname = "base_model" if args.model == "basic" else "dilated_model"
+    base_dir = Path("results") / model_dirname
+    plots_dir = base_dir / "plots"
+
+    # If user did not override --ckpt-dir, redirect checkpoints under this model
+    ckpt_dir = Path(args.ckpt_dir)
+    if args.ckpt_dir == "results/checkpoints":
+        ckpt_dir = base_dir / "checkpoints"
+
+    # Per-model paths
+    log_path = base_dir / "train_log.csv"
+    clsrep_path = base_dir / "classification_report.csv"
+    model_summary_path = base_dir / "model_summary.txt"
+
+    # Ensure base dirs exist
+    base_dir.mkdir(parents=True, exist_ok=True)
+    (plots_dir).mkdir(parents=True, exist_ok=True)
+    ckpt_dir.mkdir(parents=True, exist_ok=True)
+
     seed_all(args.seed)
     device = get_device(args.device)
 
@@ -385,8 +404,7 @@ def main():
     )
 
     # 4a) Resume BEFORE printing/saving any summary
-    ckpt_dir = Path(args.ckpt_dir); ckpt_dir.mkdir(parents=True, exist_ok=True)
-    log_path = Path("results") / "train_log.csv"
+
     prev_last_epoch = 0
     history_rows = []
     if log_path.exists():
@@ -413,14 +431,11 @@ def main():
     n_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
     print(f"Trainable parameters: {n_params}")
 
-    Path("results").mkdir(parents=True, exist_ok=True)
     summary_txt = get_model_summary_text(
-        model, input_size=(3, 32, 32),
-        device_str=("cuda" if device.type == "cuda" else "cpu")
-    )
-    (Path("results") / "model_summary.txt").write_text(
-        f"Trainable parameters: {n_params}\n\n{summary_txt}\n", encoding="utf-8"
-    )
+    model, input_size=(3, 32, 32),
+    device_str=("cuda" if device.type == "cuda" else "cpu"))
+    model_summary_path.write_text(f"Trainable parameters: {n_params}\n\n{summary_txt}\n", encoding="utf-8")
+
     # Console summary (single print)
     show_model_summary(model, input_size=(3, 32, 32),
                        device_str=("cuda" if device.type == "cuda" else "cpu"))
@@ -428,12 +443,19 @@ def main():
     # 5) Quick visualization (crisp grid + tiles)
     xb0, yb0 = next(iter(test_loader))
     save_grid_and_tiles(xb0, yb0, classes, "Test samples (normalized -> shown denorm)",
-                        mean, std, grid_path="results/plots/test_samples_grid.png",
-                        tiles_dir="results/plots/test_samples", max_n=16, upscale=4)
+                        mean, std, 
+                        grid_path=str(plots_dir / "test_samples_grid.png"),
+                        tiles_dir=str(plots_dir / "test_samples"),
+                        max_n=16, upscale=4)
     xb1, yb1 = next(iter(train_loader))
     save_grid_and_tiles(xb1, yb1, classes, "Augmented train samples (denorm)",
-                        mean, std, grid_path="results/plots/augmented_samples_grid.png",
-                        tiles_dir="results/plots/augmented_samples", max_n=16, upscale=4)
+                        mean, std, 
+                        grid_path=str(plots_dir / "augmented_samples_grid.png"),
+                        tiles_dir=str(plots_dir / "augmented_samples"),
+                        max_n=16, upscale=4)
+
+
+
 
     # 6) Finalize start epoch (append log vs checkpoint)
  # --- after you have train_loader and model+optimizer ---
@@ -512,37 +534,39 @@ def main():
     df_final.to_csv(log_path, index=False)
 
     # 9) Curves
-    Path("results/plots").mkdir(parents=True, exist_ok=True)
+    plots_dir.mkdir(parents=True, exist_ok=True)
     plt.figure(figsize=(8, 4))
     plt.plot(df_final["epoch"], df_final["train_acc"], label="train_acc")
     plt.plot(df_final["epoch"], df_final["test_acc"], label="test_acc")
     plt.xlabel("Epoch"); plt.ylabel("Accuracy"); plt.title("Accuracy curves")
     plt.grid(True, alpha=0.3); plt.legend()
-    plt.tight_layout(); plt.savefig("results/plots/acc_curves.png", dpi=150); plt.close()
+    plt.tight_layout(); 
+    plt.savefig(plots_dir / "acc_curves.png", dpi=150); plt.close()
 
     plt.figure(figsize=(8, 4))
     plt.plot(df_final["epoch"], df_final["train_loss"], label="train_loss")
     plt.plot(df_final["epoch"], df_final["test_loss"], label="test_loss")
     plt.xlabel("Epoch"); plt.ylabel("Loss"); plt.title("Loss curves")
     plt.grid(True, alpha=0.3); plt.legend()
-    plt.tight_layout(); plt.savefig("results/plots/loss_curves.png", dpi=150); plt.close()
+    plt.tight_layout(); 
+    plt.savefig(plots_dir / "loss_curves.png", dpi=150); plt.close()
 
     # 10) Confusion matrix & classification report (last epoch predictions of THIS run)
     cm = confusion_matrix(y_true, y_pred)
     plot_confusion_matrix(cm, classes=classes, normalize=True,
                           title="CIFAR-10 Confusion (normalized)",
-                          save_path="results/plots/cm.png")
+                          save_path=str(plots_dir / "cm.png"))
     cls_rep = classification_report(y_true, y_pred, target_names=classes, output_dict=True, zero_division=0)
-    pd.DataFrame(cls_rep).to_csv("results/classification_report.csv")
+    pd.DataFrame(cls_rep).to_csv(clsrep_path)
 
     print(f"\nBest test acc: {best_acc*100:.2f}% at epoch {best_ep}")
     print(f"Total train time (this session): {total_time:.1f}s")
-    print("Saved:")
-    print("  - results/train_log.csv   (appended)")
-    print("  - results/plots/acc_curves.png")
-    print("  - results/plots/loss_curves.png")
-    print("  - results/plots/cm.png")
-    print("  - results/classification_report.csv  (overwritten for this session)")
+    print("Saved under:", base_dir)
+    print("  - train_log.csv   (appended)")
+    print("  - plots/acc_curves.png")
+    print("  - plots/loss_curves.png")
+    print("  - plots/cm.png")
+    print("  - classification_report.csv  (overwritten for this session)")
     print(f"  - {ckpt_dir}/last.pth  (resume anytime)")
     print(f"  - {ckpt_dir}/best.pth  (best-by-acc)")
     if args.save_every > 0:
