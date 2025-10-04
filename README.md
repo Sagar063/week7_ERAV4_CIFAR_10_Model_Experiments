@@ -50,20 +50,63 @@ After B4, the feature map is 4×4 (from 32→16→8→4), then **GAP** → 1×1,
 <!-- RESULTS -->
 | Metric | Value |
 |---|---:|
-| **Best Test Acc** | **59.80%** (epoch 2) |
-| Best Test Loss | 1.0959 |
-| Last Train Acc | 53.74% (epoch 2) |
-| Last Train Loss | 1.2765 |
-| Updated | 2025-10-04 16:12:04 |
+| **Best Test Acc** | **58.95%** (epoch 2) |
+| Best Test Loss | 1.1432 |
+| Last Train Acc | 53.75% (epoch 2) |
+| Last Train Loss | 1.2711 |
+| Updated | 2025-10-04 16:59:14 |
 <!-- /RESULTS -->
 
 <!-- PLOTS -->
-<p><strong>Test samples</strong><br>
-<img src="results/plots/test_samples.png" alt="Test samples" width="600"></p>
+<p><strong>Test samples (grid)</strong><br>
+<img src="results/plots/test_samples_grid.png" alt="Test samples (grid)" width="720"></p>
 
-<p><strong>Augmented train samples</strong><br>
-<img src="results/plots/augmented_samples.png" alt="Augmented train samples" width="600"></p>
+<p><strong>Augmented train samples (grid)</strong><br>
+<img src="results/plots/augmented_samples_grid.png" alt="Augmented train samples (grid)" width="720"></p>
 
 <p><strong>Accuracy curves</strong><br>
-<img src="results/plots/acc_curves.png" alt="Accuracy curves" width="600"></p>
+<img src="results/plots/acc_curves.png" alt="Accuracy curves" width="720"></p>
+
+<p><strong>Loss curves</strong><br>
+<img src="results/plots/loss_curves.png" alt="Loss curves" width="720"></p>
+
+<p><strong>Confusion matrix (normalized)</strong><br>
+<img src="results/plots/cm.png" alt="Confusion matrix (normalized)" width="720"></p>
 <!-- /PLOTS -->
+
+<!-- TILE_GALLERY -->
+<h4>Test sample tiles</h4>
+<p>
+<img src="D:/ERA/week7/week7_ERAV4_CIFAR_10_Model_Experiments/results/plots/test_samples/img_00_cat.png" width="128" style="margin:4px;">
+<img src="D:/ERA/week7/week7_ERAV4_CIFAR_10_Model_Experiments/results/plots/test_samples/img_01_ship.png" width="128" style="margin:4px;">
+<img src="D:/ERA/week7/week7_ERAV4_CIFAR_10_Model_Experiments/results/plots/test_samples/img_02_ship.png" width="128" style="margin:4px;">
+<img src="D:/ERA/week7/week7_ERAV4_CIFAR_10_Model_Experiments/results/plots/test_samples/img_03_airplane.png" width="128" style="margin:4px;">
+<img src="D:/ERA/week7/week7_ERAV4_CIFAR_10_Model_Experiments/results/plots/test_samples/img_04_frog.png" width="128" style="margin:4px;">
+<img src="D:/ERA/week7/week7_ERAV4_CIFAR_10_Model_Experiments/results/plots/test_samples/img_05_frog.png" width="128" style="margin:4px;">
+<img src="D:/ERA/week7/week7_ERAV4_CIFAR_10_Model_Experiments/results/plots/test_samples/img_06_automobile.png" width="128" style="margin:4px;">
+<img src="D:/ERA/week7/week7_ERAV4_CIFAR_10_Model_Experiments/results/plots/test_samples/img_07_frog.png" width="128" style="margin:4px;">
+</p>
+
+<h4>Augmented sample tiles</h4>
+<p>
+<img src="D:/ERA/week7/week7_ERAV4_CIFAR_10_Model_Experiments/results/plots/augmented_samples/img_00_frog.png" width="128" style="margin:4px;">
+<img src="D:/ERA/week7/week7_ERAV4_CIFAR_10_Model_Experiments/results/plots/augmented_samples/img_01_truck.png" width="128" style="margin:4px;">
+<img src="D:/ERA/week7/week7_ERAV4_CIFAR_10_Model_Experiments/results/plots/augmented_samples/img_02_ship.png" width="128" style="margin:4px;">
+<img src="D:/ERA/week7/week7_ERAV4_CIFAR_10_Model_Experiments/results/plots/augmented_samples/img_03_horse.png" width="128" style="margin:4px;">
+<img src="D:/ERA/week7/week7_ERAV4_CIFAR_10_Model_Experiments/results/plots/augmented_samples/img_04_airplane.png" width="128" style="margin:4px;">
+<img src="D:/ERA/week7/week7_ERAV4_CIFAR_10_Model_Experiments/results/plots/augmented_samples/img_05_automobile.png" width="128" style="margin:4px;">
+<img src="D:/ERA/week7/week7_ERAV4_CIFAR_10_Model_Experiments/results/plots/augmented_samples/img_06_automobile.png" width="128" style="margin:4px;">
+<img src="D:/ERA/week7/week7_ERAV4_CIFAR_10_Model_Experiments/results/plots/augmented_samples/img_07_bird.png" width="128" style="margin:4px;">
+</p>
+<!-- /TILE_GALLERY -->
+
+<!-- VISUALIZATION -->
+**Augmentation Visualization**
+
+Use the helper to render a crisp grid and per-image tiles (nearest-neighbor, no blur):
+
+```bash
+python visualize_augmentations.py --save results/plots/aug_demo.png
+```
+_Why_: sanity-check your Albumentations pipeline and confirm computed mean/std are used.
+<!-- /VISUALIZATION -->
