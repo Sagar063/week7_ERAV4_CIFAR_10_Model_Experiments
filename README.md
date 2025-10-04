@@ -391,11 +391,11 @@ Both **Net** and **NetDilated** models meet the target accuracy (≥ 85 %) while
 
 | Model | Params | Best Acc (%) | RF Size | First > 85 % Val Acc (Epoch) |
 |--------|---------|---------------|-----------|--------------------------------|
-| **Base Net** | 84 k | 87.7 | 55 | ≈ 35 |
-| **Dilated Net** | 198 k | 92.0 | 45 | ≈ 22 |
+| **Base Net** | 84 k | 87.7 | 55 | ≈ 54 |
+| **Dilated Net** | 198 k | 92.0 | 45 | ≈ 44 |
 
 **Observations**
-- The **Dilated model** achieves higher final accuracy and reaches 85 % validation accuracy earlier (epoch ≈ 22 vs 35).  
+- The **Dilated model** achieves higher final accuracy and reaches 85 % validation accuracy earlier (epoch ≈ 44 vs 54).  
 - Despite its smaller receptive field (45 vs 55), the dilated network captures **broader contextual information** without spatial downsampling, keeping high-resolution features intact.  
 - The additional parameters (~2.3× more) likely enhance representational depth, but the key gain stems from **dense feature maps** that preserve local detail and reduce aliasing introduced by strided convs.  
 - The **Base model** shows a spike in validation loss around epoch ~10 — typical of OneCycleLR’s peak-LR phase causing a brief overshoot.
@@ -407,7 +407,9 @@ Both **Net** and **NetDilated** models meet the target accuracy (≥ 85 %) while
 
 **Key takeaway:**  
 > The **dilated** model reaches strong validation accuracy earlier and finishes with higher accuracy.  
+
 > The **base** (stride-downsampling) model is lighter but saturates lower and shows a brief val-loss overshoot around the OneCycleLR peak.
+
 > Although **dilated** has a smaller theoretical RF when compared to **base** (45 vs 55), it preserves full-resolution feature maps (no stride) and expands context via dilation, reducing aliasing from strided sampling and keeping local detail. The ~2.3× extra parameters add capacity, but the main boost comes from the stride-free, dense representations that improve class separation—especially among visually similar classes.
 
 
